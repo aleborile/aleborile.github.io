@@ -1,0 +1,52 @@
+# dependencies
+node_modules
+
+# sst
+.sst
+
+# tmp files
+.#*
+
+# env 
+.env
+.env.local
+
+# svelte-kit
+.svelte-kit
+
+# opennext
+.open-next
+
+# misc
+.DS_Store
+# Devenv
+.devenv*
+devenv.local.nix
+
+# direnv
+.direnv
+
+# pre-commit
+.pre-commit-config.yaml
+
+# Devenv
+.devenv*
+devenv.local.nix
+devenv.local.yaml
+
+# direnv
+.direnv
+
+# pre-commit
+.pre-commit-config.yaml
+
+*.log
+
+# ts
+/dist
+*.tsbuildinfo
+
+# secret
+*secret*
+
+build
