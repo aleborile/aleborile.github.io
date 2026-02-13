@@ -1,11 +1,12 @@
 <script lang="ts">
   import { LineChart } from "layerchart";
-  import { scaleUtc } from "d3-scale";
+  import { scaleUtc, tickFormat } from "d3-scale";
   import { curveNatural } from "d3-shape";
   import * as Chart from "$lib/components/ui/chart/index.js";
   import * as Card from "$lib/components/ui/card/index.js";
   import { add as addDate } from "date-fns";
   import { MediaQuery } from "svelte/reactivity";
+  import { mode, toggleMode, setMode } from "mode-watcher";
 
   const isMobile = new MediaQuery("(max-width: 640px)");
 
@@ -14,7 +15,9 @@
   // Calculate current age in months and days
   const currentAge = $derived.by(() => {
     const now = new Date();
-    let months = (now.getFullYear() - birthDate.getFullYear()) * 12 + (now.getMonth() - birthDate.getMonth());
+    let months =
+      (now.getFullYear() - birthDate.getFullYear()) * 12 +
+      (now.getMonth() - birthDate.getMonth());
     let days = now.getDate() - birthDate.getDate();
     if (days < 0) {
       months--;
@@ -79,6 +82,40 @@
     return getSizeForLength(lastMeasurement.length);
   });
 
+  const currentLength = $derived.by(() => {
+    if (measurements.length === 0) return null;
+    if (measurements.length === 1) return measurements[0].length;
+
+    // Sort measurements by month to ensure order
+    const sorted = [...measurements].sort((a, b) => a.month - b.month);
+
+    // If before first measurement, return first value
+    if (currentMonth <= sorted[0].month) return sorted[0].length;
+
+    // If after last measurement, extrapolate using last two measurements
+    const last = sorted[sorted.length - 1];
+    if (currentMonth >= last.month) {
+      const prev = sorted[sorted.length - 2];
+      const slope = (last.length - prev.length) / (last.month - prev.month);
+      return last.length + slope * (currentMonth - last.month);
+    }
+
+    // Find bracketing measurements and interpolate
+    for (let i = 0; i < sorted.length - 1; i++) {
+      if (
+        currentMonth >= sorted[i].month &&
+        currentMonth < sorted[i + 1].month
+      ) {
+        const m1 = sorted[i];
+        const m2 = sorted[i + 1];
+        const t = (currentMonth - m1.month) / (m2.month - m1.month);
+        return m1.length + t * (m2.length - m1.length);
+      }
+    }
+
+    return null;
+  });
+
   const estimation = $derived.by(() => {
     if (measurements.length < 2) return [];
 
@@ -105,7 +142,12 @@
       } else {
         // Use estimation with age adjustment for future months
         const ageAdjust = Math.max(0.4, 1 - (m - lastMonth) * 0.03);
-        length = Math.max(0, intercept + slope * m * ageAdjust + (1 - ageAdjust) * slope * lastMonth);
+        length = Math.max(
+          0,
+          intercept +
+            slope * m * ageAdjust +
+            (1 - ageAdjust) * slope * lastMonth,
+        );
       }
 
       points.push({
@@ -142,43 +184,87 @@
     return allMonthsData.filter((d) => d.idx % step === 0);
   });
 
-  const chartConfig = {
-    length: { label: "length", color: "red" },
-    estimate: { label: "estimate", color: "green" },
-  } satisfies Chart.ChartConfig;
-
+  const chartConfig = $derived({
+    length: { label: "length", color: mode.current === 'dark' ? "#f87171" : "red" },
+    estimate: { label: "estimate", color: mode.current === 'dark' ? "#4ade80" : "green" },
+  } satisfies Chart.ChartConfig);
 </script>
 
 <svelte:head>
   <title>Pepé Chart</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
-  <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap" rel="stylesheet" />
+  <link
+    rel="preconnect"
+    href="https://fonts.gstatic.com"
+    crossorigin="anonymous"
+  />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap"
+    rel="stylesheet"
+  />
 </svelte:head>
 
 <!-- Age & Size Header -->
 <div
-  class="mb-6 p-6 rounded-xl bg-linear-to-r from-blue-400 to-blue-600 text-white relative"
+  class="mb-6 p-6 rounded-xl bg-linear-to-r from-blue-400 to-blue-600 dark:from-blue-800 dark:to-blue-950 text-white relative overflow-hidden"
 >
+  <!-- Background overlay -->
+  {#if mode.current === 'dark'}
+    <div class="absolute inset-0 pointer-events-none select-none">
+      <span class="absolute top-2 left-[10%] text-xs opacity-60">✦</span>
+      <span class="absolute top-4 left-[25%] text-[0.5rem] opacity-40">✦</span>
+      <span class="absolute top-1 left-[40%] text-sm opacity-50">✦</span>
+      <span class="absolute top-5 left-[55%] text-[0.4rem] opacity-30">✦</span>
+      <span class="absolute top-2 left-[70%] text-xs opacity-50">✦</span>
+      <span class="absolute top-6 left-[15%] text-[0.5rem] opacity-35">✦</span>
+      <span class="absolute top-3 left-[85%] text-[0.4rem] opacity-45">✦</span>
+      <span class="absolute bottom-8 left-[20%] text-[0.5rem] opacity-40">✦</span>
+      <span class="absolute bottom-6 left-[45%] text-xs opacity-35">✦</span>
+      <span class="absolute bottom-10 left-[65%] text-[0.4rem] opacity-50">✦</span>
+      <span class="absolute bottom-4 left-[30%] text-[0.5rem] opacity-30">✦</span>
+      <span class="absolute top-4 right-12 text-7xl opacity-80">🌙</span>
+    </div>
+  {:else}
+    <div class="absolute inset-0 pointer-events-none select-none">
+      <span class="absolute top-2 left-[5%] text-3xl opacity-30">☁️</span>
+      <span class="absolute top-6 left-[25%] text-2xl opacity-25">☁️</span>
+      <span class="absolute bottom-6 left-[15%] text-4xl opacity-20">☁️</span>
+      <span class="absolute top-4 left-[50%] text-2xl opacity-25">☁️</span>
+      <span class="absolute bottom-8 left-[60%] text-3xl opacity-20">☁️</span>
+      <span class="absolute top-4 right-12 text-7xl opacity-80">☀️</span>
+    </div>
+  {/if}
   <span class="absolute top-3 left-3 text-3xl">🍼</span>
-  <span class="absolute top-3 right-3 text-3xl">👶</span>
+  <button
+    onclick={() => toggleMode()}
+    class="absolute top-3 right-3 text-3xl cursor-pointer hover:scale-110 transition-transform"
+    >{mode.current === "dark" ? "👶" : "😎"}</button
+  >
   <div class="text-center mb-4">
-    <span class="text-5xl" style="font-family: 'Great Vibes', cursive;">Pepé</span>
+    <span class="text-5xl md:text-7xl" style="font-family: 'Great Vibes', cursive;"
+      >Pepé</span
+    >
   </div>
   <div class="flex flex-wrap items-center justify-between gap-2 sm:gap-4">
     <div>
       <div class="text-xs sm:text-sm opacity-80">Current Age</div>
-      <div class="text-lg sm:text-3xl font-bold">{currentAge.months} months and {currentAge.days} {currentAge.days === 1 ? 'day' : 'days'}</div>
+      <div class="text-lg sm:text-3xl font-bold">
+        {currentAge.months} months and {currentAge.days}
+        {currentAge.days === 1 ? "day" : "days"}
+      </div>
       <div class="text-xs sm:text-sm opacity-80">
+        {new Date().getDate()}
         {getFullCalendarMonth(currentMonth)} 2026
       </div>
     </div>
-    {#if currentSize}
+    {#if currentLength}
       <div class="text-right">
-        <div class="text-xs sm:text-sm opacity-80">Current Size</div>
-        <div class="text-lg sm:text-3xl font-bold">Taglia {currentSize}</div>
+        <div class="text-xs sm:text-sm opacity-80">Current Length</div>
+        <div class="text-lg sm:text-3xl font-bold">
+          {currentLength.toFixed(1)} cm
+        </div>
         <div class="text-xs sm:text-sm opacity-80">
-          {measurements[measurements.length - 1]?.length} cm
+          Taglia {currentSize}
         </div>
       </div>
     {/if}
@@ -193,10 +279,10 @@
   <Card.Content>
     <Chart.Container config={chartConfig}>
       <LineChart
-        points={{ r: 4, }}
+        points={{ r: 4 }}
         labels={{ offset: 10 }}
         data={chartData}
-        grid={{y:true, x:true}}
+        grid={{ y: true, x: true }}
         x="date"
         axis="x"
         xScale={scaleUtc()}
@@ -222,7 +308,10 @@
           },
           xAxis: {
             format: (v: Date) =>
-              v.toLocaleDateString("it-IT", { month: "short", year: "2-digit" }),
+              v.toLocaleDateString("it-IT", {
+                month: "short",
+                year: "2-digit",
+              }),
           },
           points: { r: 4 },
         }}
@@ -275,10 +364,10 @@
 </Card.Root>
 
 <!-- Monthly Growth Details -->
-<Card.Root class="mt-6">
+<Card.Root class="mt-6 dark:bg-gray-800">
   <Card.Header>
-    <Card.Title>Monthly Growth Details</Card.Title>
-    <Card.Description
+    <Card.Title class="dark:text-white">Monthly Growth Details</Card.Title>
+    <Card.Description class="dark:text-gray-300"
       >Estimated growth with dress sizes by month</Card.Description
     >
   </Card.Header>
@@ -287,11 +376,17 @@
       {#each allMonthsData as data (data.idx)}
         {#if data.estimate || data.length}
           <div
-            class="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+            class="flex items-center justify-between p-3 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-700 transition-colors {data.idx ===
+            Math.floor(currentMonth)
+              ? 'ring-2 ring-red-500 bg-red-50 dark:bg-red-950/30'
+              : ''}"
           >
             <div class="flex items-center gap-3">
-              <span class="text-xs px-2 py-0.5 rounded-full bg-muted-foreground/20 font-mono">{data.idx}</span>
-              <span class="text-sm font-bold">
+              <span
+                class="text-xs px-2 py-0.5 rounded-full bg-gray-300 dark:bg-gray-600 font-mono text-gray-700 dark:text-gray-200"
+                >{data.idx}</span
+              >
+              <span class="text-sm font-bold text-gray-900 dark:text-gray-100">
                 {data.date.toLocaleDateString("en-US", {
                   month: "short",
                   year: "2-digit",
@@ -302,20 +397,20 @@
               {#if data.length}
                 <div class="flex items-center gap-2">
                   <span class="w-2 h-2 rounded-full bg-red-500"></span>
-                  <span class="text-sm font-mono">{data.length} cm</span>
+                  <span class="text-sm font-mono text-gray-900 dark:text-gray-100">{data.length} cm</span>
                 </div>
               {/if}
               {#if data.estimate}
                 <div class="flex items-center gap-2">
                   <span class="w-2 h-2 rounded-full bg-green-500"></span>
-                  <span class="text-sm font-mono"
+                  <span class="text-sm font-mono text-gray-900 dark:text-gray-100"
                     >{data.estimate.toFixed(1)} cm</span
                   >
                 </div>
               {/if}
               {#if data.dressSize}
                 <div
-                  class="text-xs px-2 py-1 rounded bg-primary/10 text-primary font-medium"
+                  class="text-xs px-2 py-1 rounded bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200 font-medium"
                 >
                   Taglia {data.dressSize}
                 </div>

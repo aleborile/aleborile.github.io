@@ -1,1 +1,0 @@
-import{l as o,u,i as t,j as a,k as c}from"./Cprlk2kz.js";function s(e){t===null&&o(),a&&t.l!==null?l(t).m.push(e):u(()=>{const n=c(e);if(typeof n=="function")return n})}function l(e){var n=e.l;return n.u??(n.u={a:[],b:[],m:[]})}export{s as o};
