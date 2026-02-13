@@ -271,7 +271,7 @@
   </div>
 </div>
 
-<Card.Root class="bg-gray-800">
+<Card.Root class="dark:bg-gray-800">
   <Card.Header>
     <Card.Title class="dark:text-white">Pepé Chart</Card.Title>
     <Card.Description class="dark:text-gray-300">Growth estimation with dress sizes</Card.Description>
