@@ -271,16 +271,16 @@
   </div>
 </div>
 
-<Card.Root>
+<Card.Root class="bg-gray-800">
   <Card.Header>
-    <Card.Title>Pepé</Card.Title>
-    <Card.Description>Growth estimation with dress sizes</Card.Description>
+    <Card.Title class="dark:text-white">Pepé Chart</Card.Title>
+    <Card.Description class="dark:text-gray-300">Growth estimation with dress sizes</Card.Description>
   </Card.Header>
   <Card.Content>
     <Chart.Container config={chartConfig}>
       <LineChart
         points={{ r: 4 }}
-        labels={{ offset: 10 }}
+        labels={{ offset: 10}}
         data={chartData}
         grid={{ y: true, x: true }}
         x="date"
